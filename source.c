@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #define MAX_SIZE 1000
 
 typedef enum
@@ -15,11 +16,12 @@ typedef enum
 typedef struct
 {
     TokenType type;
-    char text[100];
+    char *text;
 } Token;
 
-Token tokens[MAX_SIZE];
+Token *tokens = NULL;
 int tokenCount = 0;
+int tokenCapacity = 8;
 
 void scanTokens(char md[])
 {
@@ -33,39 +35,76 @@ void scanTokens(char md[])
             char *content_start = line_start;
             int len;
 
-            if (strncmp(line_start, "### ", 4) == 0) {
+            if (strncmp(line_start, "### ", 4) == 0)
+            {
                 content_start = line_start + 4;
-            } else if (strncmp(line_start, "## ", 3) == 0) {
+            }
+            else if (strncmp(line_start, "## ", 3) == 0)
+            {
                 content_start = line_start + 3;
-            } else if (strncmp(line_start, "# ", 2) == 0) {
+            }
+            else if (strncmp(line_start, "# ", 2) == 0)
+            {
                 content_start = line_start + 2;
-            } else if (strncmp(line_start, "- ", 2) == 0) {
+            }
+            else if (strncmp(line_start, "- ", 2) == 0)
+            {
                 content_start = line_start + 2;
-            } else if (strncmp(line_start, "```", 3) == 0) {
-                // skip, handled below
+            }
+            else if (strncmp(line_start, "```", 3) == 0)
+            {
+                
             }
 
-            // determine token type from original line_start
-            Token t;
-            if (strncmp(line_start, "### ", 4) == 0) {
+           
+            Token t; 
+            if (tokenCount == tokenCapacity)
+            {
+                tokenCapacity *= 2;
+                Token *temp = realloc(tokens, tokenCapacity * sizeof(Token));
+                if (!temp)
+                {
+                    printf("realloc failed\n");
+                    return;
+                }
+                tokens = temp;
+            }
+
+            tokens[tokenCount++] = t;
+            if (strncmp(line_start, "### ", 4) == 0)
+            {
                 t.type = HASH3;
-            } else if (strncmp(line_start, "## ", 3) == 0) {
+            }
+            else if (strncmp(line_start, "## ", 3) == 0)
+            {
                 t.type = HASH2;
-            } else if (strncmp(line_start, "# ", 2) == 0) {
+            }
+            else if (strncmp(line_start, "# ", 2) == 0)
+            {
                 t.type = HASH;
-            } else if (strncmp(line_start, "- ", 2) == 0) {
+            }
+            else if (strncmp(line_start, "- ", 2) == 0)
+            {
                 t.type = BULLET_LIST;
-            } else if (strncmp(line_start, "```", 3) == 0) {
+            }
+            else if (strncmp(line_start, "```", 3) == 0)
+            {
                 t.type = CODE_BLOCK;
-            } else {
+            }
+            else
+            {
                 t.type = PARAGRAPH;
             }
 
             len = p - content_start;
-            if (len > 0) {
-                strncpy(t.text, content_start, len < 99 ? len : 99);
-                t.text[len < 99 ? len : 99] = '\0';
-            } else {
+            t.text = malloc(len + 1);
+            if (len > 0)
+            {
+                strncpy(t.text, content_start, len);
+                t.text[len] = '\0';
+            }
+            else
+            {
                 t.text[0] = '\0';
             }
 
@@ -81,25 +120,43 @@ void scanTokens(char md[])
         char *content_start = line_start;
         Token t;
 
-        if (strncmp(line_start, "### ", 4) == 0) {
-            t.type = HASH3; content_start = line_start + 4;
-        } else if (strncmp(line_start, "## ", 3) == 0) {
-            t.type = HASH2; content_start = line_start + 3;
-        } else if (strncmp(line_start, "# ", 2) == 0) {
-            t.type = HASH; content_start = line_start + 2;
-        } else if (strncmp(line_start, "- ", 2) == 0) {
-            t.type = BULLET_LIST; content_start = line_start + 2;
-        } else if (strncmp(line_start, "```", 3) == 0) {
+        if (strncmp(line_start, "### ", 4) == 0)
+        {
+            t.type = HASH3;
+            content_start = line_start + 4;
+        }
+        else if (strncmp(line_start, "## ", 3) == 0)
+        {
+            t.type = HASH2;
+            content_start = line_start + 3;
+        }
+        else if (strncmp(line_start, "# ", 2) == 0)
+        {
+            t.type = HASH;
+            content_start = line_start + 2;
+        }
+        else if (strncmp(line_start, "- ", 2) == 0)
+        {
+            t.type = BULLET_LIST;
+            content_start = line_start + 2;
+        }
+        else if (strncmp(line_start, "```", 3) == 0)
+        {
             t.type = CODE_BLOCK;
-        } else {
+        }
+        else
+        {
             t.type = PARAGRAPH;
         }
 
         int len = p - content_start;
-        if (len > 0) {
+        if (len > 0)
+        {
             strncpy(t.text, content_start, len < 99 ? len : 99);
             t.text[len < 99 ? len : 99] = '\0';
-        } else {
+        }
+        else
+        {
             t.text[0] = '\0';
         }
 
@@ -115,50 +172,60 @@ void printTokens(Token tokens[])
     }
 }
 
-
-void writeHTML(){
+void writeHTML()
+{
     int inList = 0;
     FILE *fp;
-    fp = fopen("Index.html","w");
-    if(!fp){
+    fp = fopen("Index.html", "w");
+    if (!fp)
+    {
         printf("Error while creating file");
         return;
     }
-    for(int i = 0; i< tokenCount;i++){
-        if(tokens[i].type != BULLET_LIST && inList){
-            fprintf(fp,"</ul>\n");
+    for (int i = 0; i < tokenCount; i++)
+    {
+        if (tokens[i].type != BULLET_LIST && inList)
+        {
+            fprintf(fp, "</ul>\n");
             inList = 0;
         }
-        if(tokens[i].type == HASH){
-            fprintf(fp,"<h1>%s</h1>\n",tokens[i].text);
+        if (tokens[i].type == HASH)
+        {
+            fprintf(fp, "<h1>%s</h1>\n", tokens[i].text);
         }
-        else if(tokens[i].type == HASH2){
-            fprintf(fp,"<h2>%s</h2>\n",tokens[i].text);
+        else if (tokens[i].type == HASH2)
+        {
+            fprintf(fp, "<h2>%s</h2>\n", tokens[i].text);
         }
-        else if(tokens[i].type == HASH3){
-            fprintf(fp,"<h3>%s</h3>\n",tokens[i].text);
+        else if (tokens[i].type == HASH3)
+        {
+            fprintf(fp, "<h3>%s</h3>\n", tokens[i].text);
         }
-        else if(tokens[i].type == PARAGRAPH){
-            fprintf(fp,"<p>%s</p>\n",tokens[i].text);
+        else if (tokens[i].type == PARAGRAPH)
+        {
+            fprintf(fp, "<p>%s</p>\n", tokens[i].text);
         }
-        else if(tokens[i].type == BULLET_LIST){
-            if(!inList){
+        else if (tokens[i].type == BULLET_LIST)
+        {
+            if (!inList)
+            {
                 inList = 1;
-                fprintf(fp,"<ul>\n");
+                fprintf(fp, "<ul>\n");
             }
-            fprintf(fp,"<li>%s</li>\n",tokens[i].text);
+            fprintf(fp, "<li>%s</li>\n", tokens[i].text);
         }
-        else if(tokens[i].type ==CODE_BLOCK){
-            fprintf(fp,"<code>%s</code>\n",tokens[i].text);
+        else if (tokens[i].type == CODE_BLOCK)
+        {
+            fprintf(fp, "<code>%s</code>\n", tokens[i].text);
         }
     }
 
-    if(inList){
-        fprintf(fp,"</ul>");
+    if (inList)
+    {
+        fprintf(fp, "</ul>");
         inList = 0;
     }
 }
-
 
 int main()
 {
@@ -177,16 +244,21 @@ int main()
     int size = strlen(md);
 
     scanTokens(md);
-    
+
     printf("Would you like to download html? (y/n) : ");
     char chs;
-    scanf("%c",&chs);
-    if(chs == 'y'){
+    scanf("%c", &chs);
+    if (chs == 'y')
+    {
         writeHTML();
         return 0;
-    }else if(chs == 'n'){
+    }
+    else if (chs == 'n')
+    {
         return 0;
-    }else{
+    }
+    else
+    {
         printf("Invalid input\n");
         printf("Returning...");
         return 1;
