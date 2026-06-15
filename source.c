@@ -23,51 +23,87 @@ int tokenCount = 0;
 
 void scanTokens(char md[])
 {
-    int i = 0;
-    while (md[i] != '\0')
+    char *line_start = md;
+    char *p = md;
+
+    while (*p != '\0')
     {
-        if (md[i] == '\n')
+        if (*p == '\n')
         {
-            i++;
-            continue;
-        }
-        if (md[i] == '#')
-        {
-            tokens[tokenCount].type = HASH;
-            i++;
-            if (md[i] == ' ')
-                i++;
-            int c = 0;
-            while (md[i] != '\n' && md[i] != '\0')
-            {
-                tokens[tokenCount].text[c++] = md[i++];
+            char *content_start = line_start;
+            int len;
+
+            if (strncmp(line_start, "### ", 4) == 0) {
+                content_start = line_start + 4;
+            } else if (strncmp(line_start, "## ", 3) == 0) {
+                content_start = line_start + 3;
+            } else if (strncmp(line_start, "# ", 2) == 0) {
+                content_start = line_start + 2;
+            } else if (strncmp(line_start, "- ", 2) == 0) {
+                content_start = line_start + 2;
+            } else if (strncmp(line_start, "```", 3) == 0) {
+                // skip, handled below
             }
-            tokens[tokenCount].text[c] = '\0';
-            tokenCount++;
-        }
-        else if (md[i] == '-' && md[i + 1] == ' ')
-        {
-            tokens[tokenCount].type = BULLET_LIST;
-            int c = 0;
-            i += 2;
-            while (md[i] != '\n' && md[i] != '\0')
-            {
-                tokens[tokenCount].text[c++] = md[i++];
+
+            // determine token type from original line_start
+            Token t;
+            if (strncmp(line_start, "### ", 4) == 0) {
+                t.type = HASH3;
+            } else if (strncmp(line_start, "## ", 3) == 0) {
+                t.type = HASH2;
+            } else if (strncmp(line_start, "# ", 2) == 0) {
+                t.type = HASH;
+            } else if (strncmp(line_start, "- ", 2) == 0) {
+                t.type = BULLET_LIST;
+            } else if (strncmp(line_start, "```", 3) == 0) {
+                t.type = CODE_BLOCK;
+            } else {
+                t.type = PARAGRAPH;
             }
-            tokens[tokenCount].text[c] = '\0';
-            tokenCount++;
-        }
-        else
-        {
-            tokens[tokenCount].type = PARAGRAPH;
-            int c = 0;
-            while (md[i] != '\n' && md[i] != '\0')
-            {
-                tokens[tokenCount].text[c++] = md[i++];
+
+            len = p - content_start;
+            if (len > 0) {
+                strncpy(t.text, content_start, len < 99 ? len : 99);
+                t.text[len < 99 ? len : 99] = '\0';
+            } else {
+                t.text[0] = '\0';
             }
-            tokens[tokenCount].text[c] = '\0';
-            tokenCount++;
+
+            tokens[tokenCount++] = t;
+            line_start = p + 1;
         }
+        p++;
+    }
+
+    // handle last line if no trailing newline
+    if (p != line_start)
+    {
+        char *content_start = line_start;
+        Token t;
+
+        if (strncmp(line_start, "### ", 4) == 0) {
+            t.type = HASH3; content_start = line_start + 4;
+        } else if (strncmp(line_start, "## ", 3) == 0) {
+            t.type = HASH2; content_start = line_start + 3;
+        } else if (strncmp(line_start, "# ", 2) == 0) {
+            t.type = HASH; content_start = line_start + 2;
+        } else if (strncmp(line_start, "- ", 2) == 0) {
+            t.type = BULLET_LIST; content_start = line_start + 2;
+        } else if (strncmp(line_start, "```", 3) == 0) {
+            t.type = CODE_BLOCK;
+        } else {
+            t.type = PARAGRAPH;
+        }
+
+        int len = p - content_start;
+        if (len > 0) {
+            strncpy(t.text, content_start, len < 99 ? len : 99);
+            t.text[len < 99 ? len : 99] = '\0';
+        } else {
+            t.text[0] = '\0';
+        }
+
+        tokens[tokenCount++] = t;
     }
 }
 
@@ -78,6 +114,37 @@ void printTokens(Token tokens[])
         printf("Tokentype : %d , text : %s\n", tokens[i].type, tokens[i].text);
     }
 }
+
+
+void writeHTML(){
+    FILE *fp;
+    fp = fopen("Index.html","w");
+    if(!fp){
+        printf("Error while creating file");
+        return;
+    }
+    for(int i = 0; i< tokenCount;i++){
+        if(tokens[i].type == HASH){
+            fprintf(fp,"<h1>%s</h1>\n",tokens[i].text);
+        }
+        else if(tokens[i].type == HASH2){
+            fprintf(fp,"<h2>%s</h2>\n",tokens[i].text);
+        }
+        else if(tokens[i].type == HASH3){
+            fprintf(fp,"<h3>%s</h3>\n",tokens[i].text);
+        }
+        else if(tokens[i].type == PARAGRAPH){
+            fprintf(fp,"<p>%s</p>\n",tokens[i].text);
+        }
+        else if(tokens[i].type == BULLET_LIST){
+            fprintf(fp,"<ul><li>%s</li></ul>\n",tokens[i].text);
+        }
+        else if(tokens[i].type ==CODE_BLOCK){
+            fprintf(fp,"<code>%s</code>\n",tokens[i].text);
+        }
+    }
+}
+
 
 int main()
 {
@@ -96,7 +163,20 @@ int main()
     int size = strlen(md);
 
     scanTokens(md);
-    printTokens(tokens);
+    
+    printf("Would you like to download html? (y/n) : ");
+    char chs;
+    scanf("%c",&chs);
+    if(chs == 'y'){
+        writeHTML();
+        return 0;
+    }else if(chs == 'n'){
+        return 0;
+    }else{
+        printf("Invalid input\n");
+        printf("Returning...");
+        return 1;
+    }
 
     return 0;
 }
