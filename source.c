@@ -117,6 +117,7 @@ void printTokens(Token tokens[])
 
 
 void writeHTML(){
+    int inList = 0;
     FILE *fp;
     fp = fopen("Index.html","w");
     if(!fp){
@@ -137,11 +138,23 @@ void writeHTML(){
             fprintf(fp,"<p>%s</p>\n",tokens[i].text);
         }
         else if(tokens[i].type == BULLET_LIST){
-            fprintf(fp,"<ul><li>%s</li></ul>\n",tokens[i].text);
+            if(!inList){
+                inList = 1;
+                fprintf(fp,"<ul>\n");
+            }
+            fprintf(fp,"<li>%s</li>\n",tokens[i].text);
         }
         else if(tokens[i].type ==CODE_BLOCK){
             fprintf(fp,"<code>%s</code>\n",tokens[i].text);
+        }else if(inList){
+            fprintf(fp,"</ul>\n");
+            inList = 0;
         }
+    }
+
+    if(inList){
+        fprintf(fp,"</ul>");
+        inList = 0;
     }
 }
 
