@@ -125,6 +125,10 @@ void writeHTML(){
         return;
     }
     for(int i = 0; i< tokenCount;i++){
+        if(tokens[i].type != BULLET_LIST && inList){
+            fprintf(fp,"</ul>\n");
+            inList = 0;
+        }
         if(tokens[i].type == HASH){
             fprintf(fp,"<h1>%s</h1>\n",tokens[i].text);
         }
@@ -146,9 +150,6 @@ void writeHTML(){
         }
         else if(tokens[i].type ==CODE_BLOCK){
             fprintf(fp,"<code>%s</code>\n",tokens[i].text);
-        }else if(inList){
-            fprintf(fp,"</ul>\n");
-            inList = 0;
         }
     }
 
