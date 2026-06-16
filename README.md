@@ -1,4 +1,4 @@
-# Markdown-to-HTML Parser (`mdrender`)
+# Markdown-to-HTML Parser (`mdh`)
 
 A lightweight, high-performance static Markdown-to-HTML compiler written in pure C. This tool processes structural Markdown files line-by-line using a state-machine architecture to accurately translate headings, lists, paragraphs, and code blocks into clean, valid HTML documents.
 
@@ -67,10 +67,10 @@ Since the utility uses only standard POSIX/ISO C libraries, it can be compiled o
 
 ```bash
 # Compile the compiler tool
-gcc -O2 mdrender.c -o mdrender
+gcc -O2 mdh.c -o mdh
 
 # Execute the binary
-./mdrender
+./mdh
 
 ```
 
