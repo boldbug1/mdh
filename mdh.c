@@ -101,6 +101,21 @@ void writeHTML()
         return;
     }
 
+    fprintf(fp,
+    "<!DOCTYPE html>\n"
+    "<html>\n"
+    "<head>\n"
+    "<meta charset=\"UTF-8\">\n"
+    "<title>Markdown Output</title>\n"
+    "<style>\n"
+    "body{font-family:Arial,sans-serif;max-width:800px;margin:auto;padding:2rem;line-height:1.6;}\n"
+    "pre{background:#f4f4f4;padding:1rem;overflow-x:auto;}\n"
+    "pre {background:#f6f8fa;padding:1rem;border-radius:8px;overflow-x:auto;}\n"
+    "code {font-family: Consolas, Monaco, monospace;}\n"
+    "</style>\n"
+    "</head>\n"
+    "<body>\n");
+
     for (int i = 0; i < tokenCount; i++)
     {
         if (tokens[i].type != BULLET_LIST && inList)
@@ -161,6 +176,7 @@ void writeHTML()
     if (inCode)
         fprintf(fp, "</code></pre>\n");
 
+    fprintf(fp,"</body></html>");
     fclose(fp);
     printf("HTML generated successfully as 'Index.html'.\n");
 }
@@ -213,6 +229,10 @@ void processLine(char *line_start, char *end)
     Token t;
     int line_len = end - line_start;
 
+    if(line_len == 0){
+        return;
+    }
+
     if (line_len >= 3 && strncmp(line_start, "```", 3) == 0)
     {
         t.type = CODE_BLOCK;
@@ -241,6 +261,11 @@ void processLine(char *line_start, char *end)
         content_start = line_start + 2;
     }
     else if (line_len >= 2 && strncmp(line_start, "- ", 2) == 0)
+    {
+        t.type = BULLET_LIST;
+        content_start = line_start + 2;
+    }
+    else if (line_len >= 2 && strncmp(line_start, "* ", 2) == 0)
     {
         t.type = BULLET_LIST;
         content_start = line_start + 2;
