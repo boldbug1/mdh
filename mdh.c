@@ -21,7 +21,7 @@ int tokenCount = 0;
 int tokenCapacity = 8;
 
 void processLine(char *line_start, char *end);
-void writeHTML();
+void writeHTML(char *filename);
 void cleanup();
 void scanTokens(char md[]);
 void processLine(char *line_start, char *end);
@@ -31,8 +31,8 @@ int main(int argc, char *argv[])
 {
     FILE *file;
 
-    if (argc != 2) {
-        printf("Usage : %s <filename>", argv[0]);
+    if (argc < 2 || argc > 3) {
+        printf("Usage : %s <filename> <output.html>\nLeave output.html for default index.html\n", argv[0]);
         return 1;
     }
     file = fopen(argv[1], "r");
@@ -40,6 +40,12 @@ int main(int argc, char *argv[])
         printf("Error opening file");
         return 1;
     }
+    char *output_filename;
+
+    if(argc == 3){
+        output_filename = argv[2];
+    }
+
     fseek(file, 0, SEEK_END);
     long size = ftell(file);
     rewind(file);
@@ -47,30 +53,36 @@ int main(int argc, char *argv[])
     if (!md) {
         return 1;
     }
-    fread(md, 1, size, file);
-    md[size] = '\0';
+    size_t bytes_read = fread(md, 1, size, file);
+    md[bytes_read] = '\0';
     scanTokens(md);
-    printf("\nWould you like to download html? (y/n) : ");
-    char chs;
-    scanf(" %c", &chs);
-    if (chs == 'y' || chs == 'Y') {
-        writeHTML();
-    } else if (chs == 'n' || chs == 'N') {
-        printf("Exiting without saving.\n");
-    } else {
-        printf("Invalid input. Returning...\n");
-    }
+    writeHTML(output_filename);
     cleanup();
     fclose(file);
     free(md);
     return 0;
 }
 
-void writeHTML()
+void writeHTML(char *filename)
 {
     int inList = 0;
     int inCode = 0;
-    FILE *fp = fopen("Index.html", "w");
+    
+    char output[256];
+
+    size_t len = strlen(filename);
+
+    if(len >= 5 && strcmp(filename + len - 5 , ".html") == 0){
+        strcpy(output , filename);
+    }
+    else{
+        snprintf(output,sizeof(output),"%s.html",filename);
+    }
+
+    FILE *fp;
+    fp = fopen(output,"w");
+
+
     if (!fp) {
         printf("Error while creating file\n");
         return;
@@ -136,7 +148,7 @@ void writeHTML()
 
     fprintf(fp, "</body></html>");
     fclose(fp);
-    printf("HTML generated successfully as 'Index.html'.\n");
+    printf("HTML generated successfully as '%s'.\n",output);
 }
 
 void scanTokens(char md[])
