@@ -8,7 +8,8 @@ typedef enum {
     CODE_BLOCK,
     HASH2,
     HASH3,
-    PARAGRAPH
+    PARAGRAPH,
+    BLOCK_QUOTE,
 } TokenType;
 
 typedef struct {
@@ -40,7 +41,7 @@ int main(int argc, char *argv[])
         printf("Error opening file");
         return 1;
     }
-    char *output_filename;
+    char *output_filename = "index.html";
 
     if(argc == 3){
         output_filename = argv[2];
@@ -117,7 +118,9 @@ void writeHTML(char *filename)
             fprintf(fp, "<h2>%s</h2>\n", tokens[i].text);
         } else if (tokens[i].type == HASH3) {
             fprintf(fp, "<h3>%s</h3>\n", tokens[i].text);
-        } else if (tokens[i].type == PARAGRAPH) {
+        }else if (tokens[i].type ==BLOCK_QUOTE){
+            fprintf(fp,"<blockquote>%s</blockquote>",tokens[i].text);
+        }else if (tokens[i].type == PARAGRAPH) {
 
             if (inCode) {
                 fprintf(fp, "%s\n", tokens[i].text);
@@ -139,6 +142,7 @@ void writeHTML(char *filename)
                 inCode = 0;
             }
         }
+        
     }
 
     if (inList)
@@ -221,6 +225,9 @@ void processLine(char *line_start, char *end)
         content_start = line_start + 2;
     } else if (line_len >= 2 && strncmp(line_start, "* ", 2) == 0) {
         t.type = BULLET_LIST;
+        content_start = line_start + 2;
+    }else if(line_len >= 2 && strncmp(line_start,"> ",2)==0){
+        t.type = BLOCK_QUOTE;
         content_start = line_start + 2;
     } else {
         t.type = PARAGRAPH;
