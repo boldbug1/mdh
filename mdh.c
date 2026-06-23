@@ -10,6 +10,8 @@ typedef enum {
     HASH3,
     PARAGRAPH,
     BLOCK_QUOTE,
+    INLINE_BOLD,
+    INLINE_ITALIC
 } TokenType;
 
 typedef struct {
@@ -25,7 +27,7 @@ void processLine(char *line_start, char *end);
 void writeHTML(char *filename);
 void cleanup();
 void scanTokens(char md[]);
-void processLine(char *line_start, char *end);
+void renderInline(FILE *fp, const char *text);
 int parsingCodeBlock = 0;
 
 int main(int argc, char *argv[])
@@ -64,6 +66,88 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+void renderInline(FILE *fp, const char *text)
+{
+    const char *p = text;
+
+    while (*p != '\0') {
+
+        /* ── code span: `...` – pass through verbatim ── */
+        if (*p == '`') {
+            fputc('`', fp);
+            p++;
+            while (*p != '\0' && *p != '`') {
+                fputc(*p, fp);
+                p++;
+            }
+            if (*p == '`') { fputc('`', fp); p++; }
+            continue;
+        }
+
+        /* ── bold: **...** ── */
+        if (p[0] == '*' && p[1] == '*') {
+            const char *close = strstr(p + 2, "**");
+            if (close) {
+                fprintf(fp, "<strong>");
+                /* recurse so bold content can itself be italic */
+                int inner_len = close - (p + 2);
+                char *inner = malloc(inner_len + 1);
+                if (inner) {
+                    strncpy(inner, p + 2, inner_len);
+                    inner[inner_len] = '\0';
+                    renderInline(fp, inner);
+                    free(inner);
+                }
+                fprintf(fp, "</strong>");
+                p = close + 2;
+                continue;
+            }
+        }
+
+        /* ── italic: *...* ── */
+        if (p[0] == '*') {
+            const char *close = strchr(p + 1, '*');
+            if (close) {
+                fprintf(fp, "<em>");
+                int inner_len = close - (p + 1);
+                char *inner = malloc(inner_len + 1);
+                if (inner) {
+                    strncpy(inner, p + 1, inner_len);
+                    inner[inner_len] = '\0';
+                    renderInline(fp, inner);
+                    free(inner);
+                }
+                fprintf(fp, "</em>");
+                p = close + 1;
+                continue;
+            }
+        }
+
+        /* ── italic: _..._ ── */
+        if (p[0] == '_') {
+            const char *close = strchr(p + 1, '_');
+            if (close) {
+                fprintf(fp, "<em>");
+                int inner_len = close - (p + 1);
+                char *inner = malloc(inner_len + 1);
+                if (inner) {
+                    strncpy(inner, p + 1, inner_len);
+                    inner[inner_len] = '\0';
+                    renderInline(fp, inner);
+                    free(inner);
+                }
+                fprintf(fp, "</em>");
+                p = close + 1;
+                continue;
+            }
+        }
+
+        /* plain character */
+        fputc(*p, fp);
+        p++;
+    }
+}
+
 void writeHTML(char *filename)
 {
     int inList = 0;
@@ -82,7 +166,6 @@ void writeHTML(char *filename)
 
     FILE *fp;
     fp = fopen(output,"w");
-
 
     if (!fp) {
         printf("Error while creating file\n");
@@ -112,27 +195,28 @@ void writeHTML(char *filename)
             fprintf(fp, "</ul>\n");
             inList = 0;
         }
-        if (tokens[i].type == HASH) {
-            fprintf(fp, "<h1>%s</h1>\n", tokens[i].text);
-        } else if (tokens[i].type == HASH2) {
-            fprintf(fp, "<h2>%s</h2>\n", tokens[i].text);
-        } else if (tokens[i].type == HASH3) {
-            fprintf(fp, "<h3>%s</h3>\n", tokens[i].text);
-        }else if (tokens[i].type ==BLOCK_QUOTE){
-            fprintf(fp,"<blockquote>%s</blockquote>",tokens[i].text);
-        }else if (tokens[i].type == PARAGRAPH) {
 
+        if (tokens[i].type == HASH) {
+            fprintf(fp, "<h1>"); renderInline(fp, tokens[i].text); fprintf(fp, "</h1>\n");
+        } else if (tokens[i].type == HASH2) {
+            fprintf(fp, "<h2>"); renderInline(fp, tokens[i].text); fprintf(fp, "</h2>\n");
+        } else if (tokens[i].type == HASH3) {
+            fprintf(fp, "<h3>"); renderInline(fp, tokens[i].text); fprintf(fp, "</h3>\n");
+        } else if (tokens[i].type == BLOCK_QUOTE) {
+            fprintf(fp, "<blockquote>"); renderInline(fp, tokens[i].text); fprintf(fp, "</blockquote>\n");
+        } else if (tokens[i].type == PARAGRAPH) {
             if (inCode) {
+                /* inside a code block: emit raw, no inline processing */
                 fprintf(fp, "%s\n", tokens[i].text);
             } else {
-                fprintf(fp, "<p>%s</p>\n", tokens[i].text);
+                fprintf(fp, "<p>"); renderInline(fp, tokens[i].text); fprintf(fp, "</p>\n");
             }
         } else if (tokens[i].type == BULLET_LIST) {
             if (!inList) {
                 inList = 1;
                 fprintf(fp, "<ul>\n");
             }
-            fprintf(fp, "<li>%s</li>\n", tokens[i].text);
+            fprintf(fp, "<li>"); renderInline(fp, tokens[i].text); fprintf(fp, "</li>\n");
         } else if (tokens[i].type == CODE_BLOCK) {
             if (!inCode) {
                 fprintf(fp, "<pre><code>\n");
@@ -142,22 +226,18 @@ void writeHTML(char *filename)
                 inCode = 0;
             }
         }
-        
     }
 
-    if (inList)
-        fprintf(fp, "</ul>\n");
-    if (inCode)
-        fprintf(fp, "</code></pre>\n");
+    if (inList) fprintf(fp, "</ul>\n");
+    if (inCode) fprintf(fp, "</code></pre>\n");
 
     fprintf(fp, "</body></html>");
     fclose(fp);
-    printf("HTML generated successfully as '%s'.\n",output);
+    printf("HTML generated successfully as '%s'.\n", output);
 }
 
 void scanTokens(char md[])
 {
-
     tokens = malloc(tokenCapacity * sizeof(Token));
     if (!tokens) {
         printf("Initial memory allocation failed\n");
@@ -204,13 +284,11 @@ void processLine(char *line_start, char *end)
     if (line_len >= 3 && strncmp(line_start, "```", 3) == 0) {
         t.type = CODE_BLOCK;
         content_start = line_start + 3;
-        parsingCodeBlock = !parsingCodeBlock; // Toggle the state
+        parsingCodeBlock = !parsingCodeBlock;
     }
-
     else if (parsingCodeBlock) {
         t.type = PARAGRAPH;
     }
-
     else if (line_len >= 4 && strncmp(line_start, "### ", 4) == 0) {
         t.type = HASH3;
         content_start = line_start + 4;
@@ -226,7 +304,7 @@ void processLine(char *line_start, char *end)
     } else if (line_len >= 2 && strncmp(line_start, "* ", 2) == 0) {
         t.type = BULLET_LIST;
         content_start = line_start + 2;
-    }else if(line_len >= 2 && strncmp(line_start,"> ",2)==0){
+    } else if (line_len >= 2 && strncmp(line_start, "> ", 2) == 0) {
         t.type = BLOCK_QUOTE;
         content_start = line_start + 2;
     } else {
@@ -234,8 +312,7 @@ void processLine(char *line_start, char *end)
     }
 
     int len = end - content_start;
-    if (len < 0)
-        len = 0;
+    if (len < 0) len = 0;
 
     t.text = malloc(len + 1);
     if (!t.text) {
